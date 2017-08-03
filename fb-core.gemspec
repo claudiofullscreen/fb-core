@@ -15,6 +15,8 @@ Gem::Specification.new do |spec|
   spec.homepage      = 'https://github.com/Fullscreen/fb-core'
   spec.license       = 'MIT'
 
+  spec.required_ruby_version = '>= 2.4'
+
   spec.files         = `git ls-files -z`.split("\x0").reject do |f|
     f.match(%r{^(test|spec|features)/})
   end
