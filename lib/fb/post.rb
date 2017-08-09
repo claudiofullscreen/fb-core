@@ -13,6 +13,9 @@ module Fb
     # @option [Time] the post’s creation time.
     attr_reader :created_at
 
+    # @option [Integer] the lifetime impression of the post.
+    attr_reader :impressions
+
     # @param [Hash] options the options to initialize an instance of Fb::Post.
     # @option [String] :id the post id.
     # @option [String] :type the post’s type.
@@ -20,6 +23,7 @@ module Fb
     def initialize(options = {})
       @id = options[:id]
       @type = options[:type]
+      @impressions = options[:post_impressions]
       @created_at = Time.parse(options[:created_time]) if options[:created_time]
     end
 

@@ -20,5 +20,9 @@ RSpec.describe 'Fb::Page#posts' do
       expect(page.posts.map &:type).to all(be_a String)
       expect(page.posts.map &:created_at).to all(be_a Time)
     end
+
+    it 'includes metrics if specified' do
+      expect(page.posts(with_metrics: true).map &:impressions).to all(be_an Integer)
+    end
   end
 end

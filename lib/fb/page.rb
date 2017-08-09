@@ -29,7 +29,7 @@ module Fb
     # @option [Date] :since only return dates ahead to this date (lower bound).
     # @option [Date] :until only return dates previous to this day (upper bound).
     def metric_insights(metric, period, options = {})
-      insights = insights Array(metric), options.merge(period: period)
+      insights = page_insights Array(metric), options.merge(period: period)
       values = insights.find{|data| data['name'] == metric}['values']
       values.map do |v|
         [Date.strptime(v['end_time'], '%Y-%m-%dT%H:%M:%S+0000'), v.fetch('value', 0)]
@@ -43,7 +43,7 @@ module Fb
     def weekly_insights(metrics, options = {})
       since_date = options.fetch :until, Date.today - 1
       params = {period: :week, since: since_date, until: since_date + 2}
-      metrics = insights Array(metrics), params
+      metrics = page_insights Array(metrics), params
       metrics.map {|m| [m['name'].to_sym, m['values'].last.fetch('value', 0)]}.to_h
     end
 
@@ -66,14 +66,13 @@ module Fb
     end
 
     # @return [Array<Fb::Post>] the posts published on the page.
-    def posts
+    def posts(with_metrics: false)
       @posts ||= begin
         fields = %i(type created_time).join ','
         params = {access_token: @access_token, limit: 100, fields: fields}
         request = PaginatedRequest.new path: "/v2.9/#{@id}/posts", params: params
-        request.run.body['data'].map do |post_data|
-          Post.new symbolize_keys post_data
-        end
+        data = request.run.body['data']
+        with_metrics ? new_posts_with_insights_from(data) : new_posts_from(data)
       end
     end
 
@@ -84,10 +83,30 @@ module Fb
 
   private
 
+    def new_posts_from(data)
+      data.map do |post_data|
+        Post.new symbolize_keys post_data
+      end
+    end
+
+    def new_posts_with_insights_from(data)
+      data.each_slice(50).flat_map do |post_slice|
+        post_insights = insights %i(post_impressions), ids: post_slice.map{|post| post['id']}.join(',')
+        post_slice.map do |post_data|
+          insights_data = post_insights[post_data['id']]['data'].map{|metric| [ metric['name'], metric['values'].last.fetch('value', 0) ]}.to_h
+          Post.new symbolize_keys post_data.merge(insights_data)
+        end
+      end
+    end
+
+    def page_insights(metrics, options = {})
+      insights(metrics, options.merge(ids: id))[id]['data']
+    end
+
     def insights(metrics, options = {})
       params = options.merge metric: metrics.join(','), access_token: @access_token
-      request = HTTPRequest.new path: "/v2.9/#{@id}/insights", params: params
-      request.run.body['data']
+      request = HTTPRequest.new path: "/v2.9/insights", params: params
+      request.run.body
     end
   end
 end
